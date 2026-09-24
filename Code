@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Player Board</title>
+<style>
+  :root{
+    --ink:#132029; --ink-soft:#3d5361; --paper:#eef2f2; --panel:#ffffff;
+    --line:#d6dfe0; --accent:#e8611c; --court:#1b3a34; --court-soft:#e4efe9;
+    --rookie:#2f6f9e; --danger:#a8434c;
+    --tierS:#c0392b; --tierA:#d97706; --tierB:#2f6f9e; --tierC:#4b6a5a; --tierD:#8b93a0;
+    --shadow: 0 1px 2px rgba(19,32,41,0.06), 0 6px 16px rgba(19,32,41,0.06);
+    --sans:-apple-system,'Segoe UI',system-ui,sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-tap-highlight-color:transparent;min-height:100vh;display:flex;flex-direction:column;}
+  h1,h2,h3{font-family:var(--sans);font-weight:700;margin:0;}
+
+header.top{position:sticky;top:0;z-index:20;background:var(–court);color:#fff;padding:12px 14px 10px;box-shadow:var(–shadow);}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+.brand h1{font-size:18px;letter-spacing:0.01em;}
+.score{font-family:var(–mono);font-size:12.5px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;white-space:nowrap;}
+.score b{color:var(–accent);font-weight:600;}
+nav.tabs{display:flex;gap:5px;margin-top:10px;overflow-x:auto;}
+nav.tabs button{flex:1;min-width:78px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 6px;font-family:var(–sans);font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+nav.tabs button.active{background:var(–accent);color:#fff;border-color:var(–accent);}
+
+main{flex:1;max-width:720px;margin:0 auto;width:100%;padding:14px 12px 96px;}
+.panel{display:none;}
+.panel.active{display:block;}
+
+.searchwrap{position:sticky;top:0;background:var(–paper);padding:2px 0 10px;z-index:10;}
+input[type=search],input[type=text],textarea{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(–line);background:var(–panel);font-size:15px;font-family:var(–sans);color:var(–ink);}
+input:focus,textarea:focus{outline:2px solid var(–accent);outline-offset:1px;}
+
+.toolbar-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.chip{font-family:var(–sans);font-weight:600;font-size:12.5px;border:1px solid var(–line);background:var(–panel);border-radius:20px;padding:6px 12px;cursor:pointer;color:var(–ink-soft);}
+.chip.active{background:var(–court);color:#fff;border-color:var(–court);}
+
+.team-group{margin-bottom:8px;border:1px solid var(–line);border-radius:10px;overflow:hidden;background:var(–panel);}
+.team-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;cursor:pointer;background:var(–court-soft);}
+.team-head h3{font-size:14px;color:var(–court);letter-spacing:0.01em;}
+.team-head .meta{font-family:var(–mono);font-size:11px;color:var(–ink-soft);display:flex;align-items:center;gap:8px;}
+.chev{transition:transform .15s ease;font-size:12px;color:var(–ink-soft);}
+.team-group.open .chev{transform:rotate(90deg);}
+.team-body{display:none;}
+.team-group.open .team-body{display:block;}
+
+.player-row{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-top:1px solid var(–line);gap:8px;}
+.player-row .name{font-size:14px;line-height:1.3;}
+.pos-tag{font-family:var(–mono);font-size:10px;color:var(–ink-soft);border:1px solid var(–line);border-radius:4px;padding:0px 4px;margin-right:5px;}
+.rookie-badge{display:inline-block;margin-left:5px;font-family:var(–mono);font-size:10px;font-weight:600;color:var(–rookie);border:1px solid var(–rookie);border-radius:4px;padding:1px 4px;vertical-align:1px;}
+.row-actions{display:flex;gap:6px;flex:none;}
+.addbtn,.delbtn,.cmpbtn{flex:none;width:29px;height:29px;border-radius:7px;border:1px solid var(–line);background:#fff;color:var(–court);font-size:16px;font-weight:600;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;}
+.addbtn.added{background:var(–court);color:#fff;border-color:var(–court);}
+.delbtn{color:var(–danger);display:none;}
+.editmode .delbtn{display:flex;}
+.cmpbtn{color:var(–accent);font-size:13px;}
+
+.rank-empty{text-align:center;color:var(–ink-soft);padding:50px 20px;font-size:14px;line-height:1.6;}
+ul#rankList{list-style:none;margin:0;padding:0;}
+.rank-item{background:var(–panel);border:1px solid var(–line);border-radius:10px;padding:9px 10px;margin-bottom:7px;touch-action:none;box-shadow:var(–shadow);}
+.rank-item.dragging{opacity:0.85;box-shadow:0 8px 20px rgba(19,32,41,0.18);z-index:30;position:relative;}
+.rank-row-top{display:flex;align-items:center;gap:9px;}
+.rank-num{font-family:var(–mono);font-weight:600;font-size:13px;color:var(–accent);width:26px;text-align:right;flex:none;}
+.rank-info{flex:1;min-width:0;}
+.rank-info .name{font-size:14px;display:block;}
+.rank-info .team{font-size:11px;color:var(–ink-soft);}
+.tierbtn{flex:none;font-family:var(–mono);font-weight:700;font-size:11px;width:24px;height:24px;border-radius:6px;border:1px solid var(–line);background:#fff;cursor:pointer;}
+.handle{flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(–ink-soft);cursor:grab;border-radius:7px;font-size:16px;touch-action:none;}
+.notebtn{flex:none;width:26px;height:26px;border-radius:6px;border:1px solid var(–line);background:#fff;color:var(–ink-soft);font-size:12px;cursor:pointer;}
+.rm{flex:none;width:26px;height:26px;border-radius:6px;border:1px solid var(–line);background:#fff;color:var(–danger);font-size:13px;cursor:pointer;line-height:1;}
+.note-area{margin-top:7px;display:none;}
+.note-area.open{display:block;}
+.note-area textarea{font-size:13px;min-height:50px;resize:vertical;}
+.tier-group-header{font-family:var(–mono);font-weight:700;font-size:12px;color:var(–ink-soft);margin:16px 0 6px;padding-left:2px;text-transform:uppercase;letter-spacing:.06em;}
+
+/* Compare tab */
+.cmp-wrap{text-align:center;padding:10px 0 4px;}
+.cmp-progress{font-family:var(–mono);font-size:12px;color:var(–ink-soft);margin-bottom:14px;}
+.cmp-cards{display:flex;gap:10px;align-items:stretch;}
+.cmp-card{flex:1;background:var(–panel);border:2px solid var(–line);border-radius:14px;padding:22px 12px;cursor:pointer;box-shadow:var(–shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:130px;}
+.cmp-card:active{border-color:var(–accent);}
+.cmp-card .cname{font-family:var(–sans);font-weight:700;font-size:16px;line-height:1.25;}
+.cmp-card .cteam{font-size:12px;color:var(–ink-soft);}
+.cmp-vs{align-self:center;font-family:var(–mono);color:var(–ink-soft);font-size:12px;padding:0 2px;}
+.cmp-actions{margin-top:16px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;}
+.cmp-actions button{font-family:var(–sans);font-weight:600;font-size:12.5px;border-radius:8px;padding:8px 12px;cursor:pointer;border:1px solid var(–line);background:#fff;color:var(–ink-soft);}
+.cmp-idle{text-align:center;padding:40px 20px;color:var(–ink-soft);font-size:14px;line-height:1.7;}
+.cmp-start{margin-top:14px;background:var(–court);color:#fff;border:none;border-radius:9px;padding:12px 22px;font-family:var(–sans);font-weight:700;font-size:14.5px;cursor:pointer;}
+
+footer.bar{position:fixed;bottom:0;left:0;right:0;background:var(–panel);border-top:1px solid var(–line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));display:flex;gap:6px;justify-content:center;z-index:20;flex-wrap:wrap;}
+footer.bar button{font-family:var(–sans);font-weight:600;font-size:12px;border-radius:8px;padding:8px 10px;cursor:pointer;border:1px solid var(–line);background:#fff;color:var(–ink);}
+footer.bar button.primary{background:var(–court);color:#fff;border-color:var(–court);}
+footer.bar button.danger{color:var(–danger);}
+
+.toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%) translateY(10px);background:var(–ink);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:40;max-width:88%;text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.noresults{padding:24px;text-align:center;color:var(–ink-soft);font-size:14px;}
+
+.overlay{position:fixed;inset:0;background:rgba(19,32,41,0.5);z-index:50;display:none;align-items:flex-end;justify-content:center;}
+.overlay.open{display:flex;}
+.sheet{background:var(–panel);width:100%;max-width:720px;border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto;}
+.sheet h2{font-size:16px;margin-bottom:10px;}
+.sheet p.hint{font-size:12.5px;color:var(–ink-soft);margin:6px 0 10px;}
+.sheet-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;}
+.sheet-actions button{font-family:var(–sans);font-weight:600;font-size:13px;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(–line);background:#fff;}
+.sheet-actions button.primary{background:var(–court);color:#fff;border-color:var(–court);}
+</style>
+
+</head>
+<body>
+<div id="errBanner" style="display:none;position:fixed;top:0;left:0;right:0;background:#a8434c;color:#fff;padding:9px 12px;font-size:11.5px;font-family:ui-monospace,'SF Mono',Menlo,monospace;z-index:100;white-space:pre-wrap;"></div>
+<script>
+  window.addEventListener('error', function(e){
+    var b = document.getElementById('errBanner');
+    b.style.display = 'block';
+    b.textContent = 'Script error: ' + e.message + '  (line ' + e.lineno + ', col ' + e.colno + ')';
+  });
+</script>
+
+<header class="top">
+  <div class="brand">
+    <h1>Player Board</h1>
+    <div class="score">RANKED <b id="countRanked">0</b> / <span id="countTotal">0</span></div>
+  </div>
+  <nav class="tabs">
+    <button id="tabBankBtn" class="active">Bank</button>
+    <button id="tabCmpBtn">Compare</button>
+    <button id="tabRankBtn">Ranking</button>
+  </nav>
+</header>
+
+<main>
+  <section id="panelBank" class="panel active">
+    <div class="searchwrap">
+      <input type="search" id="search" placeholder="Search players or teams…" autocomplete="off">
+    </div>
+    <div class="toolbar-row">
+      <button class="chip" id="editModeBtn">Edit roster</button>
+    </div>
+    <div id="teamGroups"></div>
+    <div class="team-group open" style="margin-top:14px;">
+      <div class="team-head" style="cursor:default;"><h3>Add a missing player</h3></div>
+      <div class="team-body" style="display:block; padding:11px 13px 13px;">
+        <div style="display:flex; gap:7px; flex-wrap:wrap;">
+          <input type="text" id="customName" placeholder="Player name" style="flex:2; min-width:140px;">
+          <input type="text" id="customTeam" placeholder="Team" style="flex:1; min-width:110px;">
+          <button id="customAddBtn" style="flex:none; padding:9px 14px; border-radius:8px; border:none; background:var(--court); color:#fff; font-weight:600; cursor:pointer;">Add</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="panelCmp" class="panel">
+    <div id="cmpIdle" class="cmp-idle">
+      Compare mode places players by asking you one head-to-head question at a time — pick who's better, and it narrows down the exact spot with a handful of comparisons instead of you dragging manually.
+      <br><button class="cmp-start" id="startSortBtn">Start comparing unranked players</button>
+    </div>
+    <div id="cmpActive" style="display:none;">
+      <div class="cmp-wrap">
+        <div class="cmp-progress" id="cmpProgress"></div>
+        <div class="cmp-cards">
+          <div class="cmp-card" id="cardA"></div>
+          <div class="cmp-vs">vs</div>
+          <div class="cmp-card" id="cardB"></div>
+        </div>
+        <div class="cmp-actions">
+          <button id="cmpTooClose">Too close — insert here</button>
+          <button id="cmpSkip">Skip this player for now</button>
+          <button id="cmpStop">Stop comparing</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="panelRank" class="panel">
+    <div class="toolbar-row">
+      <button class="chip" id="groupTierBtn">Group by tier</button>
+    </div>
+    <div id="rankArea">
+      <div class="rank-empty" id="rankEmpty">
+        No one's ranked yet.<br>Go to <b>Bank</b> and tap + next to a name, or use <b>Compare</b> to place players by head-to-head picks.
+      </div>
+      <div id="rankFlat"><ul id="rankList"></ul></div>
+      <div id="rankTiered" style="display:none;"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="bar">
+  <button id="undoBtn">Undo</button>
+  <button id="exportBtn">Export</button>
+  <button id="importBtn">Import</button>
+  <button id="resetBtn" class="danger">Reset</button>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<div class="overlay" id="importOverlay">
+  <div class="sheet">
+    <h2>Import a ranking</h2>
+    <p class="hint">Paste a list like "1. Player Name (Team)" — one per line. This replaces your current ranking order. Unmatched names get added as custom entries.</p>
+    <textarea id="importText" style="min-height:160px;"></textarea>
+    <div class="sheet-actions">
+      <button id="importCancel">Cancel</button>
+      <button id="importConfirm" class="primary">Import</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="noteOverlay">
+  <div class="sheet">
+    <h2 id="noteTitle">Note</h2>
+    <textarea id="noteText" style="min-height:110px;"></textarea>
+    <div class="sheet-actions">
+      <button id="noteCancel">Cancel</button>
+      <button id="noteSave" class="primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---------- Data ----------
+  // team -> [ [name, rookieFlag, position], ... ]
+  const TEAM_DATA = {
+"Atlanta Hawks": [["Jalen Johnson",0,"F"],["C.J. McCollum",0,"G"],["Onyeka Okongwu",0,"C"],["Nickeil Alexander-Walker",0,"G"],["Dyson Daniels",0,"G"],["Jock Landale",0,"C"],["Ryan Nembhard",0,"G"],["Buddy Hield",0,"G"],["Luguentz Dort",0,"G"],["Asa Newell",0,"F"],["Devin Carter",0,"G"],["Aaron Wiggins",0,"G"],["Kingston Flemmings",1,"G"],["Zuby Ejiofor",1,"F"],["Henri Veesaar",1,"C"],["Narcisse Ngoy",1,"F"]],
+"Boston Celtics": [["Jayson Tatum",0,"F"],["Derrick White",0,"G"],["Paul George",0,"F"],["Neemias Queta",0,"C"],["Payton Pritchard",0,"G"],["Sam Hauser",0,"F"],["Mitchell Robinson",0,"C"],["Baylor Scheierman",0,"G"],["Jordan Walsh",0,"F"],["Luka Garza",0,"C"],["Ron Harper Jr.",0,"F"],["Hugo Gonzalez",0,"G"],["Chris Cenac Jr.",1,"C"],["Dillon Mitchell",1,"F"]],
+"Brooklyn Nets": [["Michael Porter Jr.",0,"F"],["Julius Randle",0,"F"],["Egor Demin",0,"G"],["Danny Wolf",0,"C"],["Noah Clowney",0,"F"],["Terance Mann",0,"G"],["Day'Ron Sharpe",0,"C"],["Nolan Traore",0,"G"],["Ben Saraf",0,"G"],["Drake Powell",0,"G"],["Keon Ellis",0,"G"],["Moe Wagner",0,"C"],["Mikel Brown Jr.",1,"G"],["Joshua Jefferson",1,"F"],["Tyler Bilodeau",1,"F"]],
+"Charlotte Hornets": [["Brandon Miller",0,"F"],["Kon Knueppel",0,"G"],["Naz Reid",0,"F"],["Coby White",0,"G"],["Dennis Schroder",0,"G"],["Grayson Allen",0,"G"],["Royce O'Neale",0,"F"],["Moussa Diabate",0,"F"],["Ryan Kalkbrenner",0,"C"],["Liam McNeeley",0,"F"],["Grant Williams",0,"F"],["Dorian Finney-Smith",0,"F"],["Hannes Steinbach",1,"F"],["Christian Anderson Jr.",1,"G"]],
+"Chicago Bulls": [["Josh Giddey",0,"G"],["Norman Powell",0,"G"],["Nicolas Claxton",0,"C"],["Matas Buzelis",0,"F"],["Isaac Okoro",0,"F"],["Tre Jones",0,"G"],["Jalen Smith",0,"F"],["Rob Dillingham",0,"G"],["Patrick Williams",0,"F"],["Zach Collins",0,"C"],["Leonard Miller",0,"F"],["Jaylin Sellers",0,"G"],["Caleb Wilson",1,"F"],["Dailyn Swain",1,"F"]],
+"Cleveland Cavaliers": [["Donovan Mitchell",0,"G"],["Evan Mobley",0,"F"],["Jarrett Allen",0,"C"],["James Harden",0,"G"],["Jaylon Tyson",0,"F"],["Sam Merrill",0,"G"],["Craig Porter Jr.",0,"G"],["Thomas Bryant",0,"C"],["Cam Whitmore",0,"F"],["Meleek Thomas",1,"G"],["Riley Minix",0,"F"],["Tristan Enaruna",0,"F"],["Mario Hezonja",0,"F"]],
+"Dallas Mavericks": [["Cooper Flagg",0,"F"],["Kyrie Irving",0,"G"],["Naji Marshall",0,"F"],["PJ Washington",0,"F"],["Santi Aldama",0,"F"],["Daniel Gafford",0,"C"],["Max Christie",0,"G"],["Zaccharie Risacher",0,"F"],["Marcus Sasser",0,"G"],["Caleb Martin",0,"F"],["Dereck Lively II",0,"C"],["Morez Johnson Jr.",1,"F"],["Sergio De Larrea",1,"G"],["Tobi Lawal",1,"F"]],
+"Denver Nuggets": [["Nikola Jokic",0,"C"],["Jamal Murray",0,"G"],["Aaron Gordon",0,"F"],["DeMar DeRozan",0,"F"],["Cameron Johnson",0,"F"],["Christian Braun",0,"G"],["Tyus Jones",0,"G"],["Julian Strawther",0,"F"],["Marvin Bagley III",0,"F"],["DaRon Holmes II",0,"F"],["Julian Reese",0,"F"],["Spencer Jones",0,"F"],["Zeke Nnaji",0,"F"],["Trevon Brazile",1,"F"],["Bryce Hopkins",1,"F"]],
+"Detroit Pistons": [["Cade Cunningham",0,"G"],["John Collins",0,"F"],["Ausar Thompson",0,"F"],["Duncan Robinson",0,"F"],["Javonte Green",0,"F"],["Daniss Jenkins",0,"G"],["Isaiah Joe",0,"G"],["Taurean Prince",0,"F"],["Paul Reed Jr.",0,"F"],["Kevin Huerter",0,"G"],["Ron Holland",0,"F"],["Chaz Lanier",0,"G"],["Ebuka Okorie",1,"G"],["Ugonna Onyenso",1,"C"]],
+"Golden State Warriors": [["Stephen Curry",0,"G"],["Jimmy Butler III",0,"F"],["Draymond Green",0,"F"],["Kristaps Porzingis",0,"C"],["Al Horford",0,"C"],["Brandin Podziemski",0,"G"],["Moses Moody",0,"G"],["DeAnthony Melton",0,"G"],["Gui Santos",0,"F"],["Will Richard",0,"G"],["Gary Payton II",0,"G"],["Charles Bassey",0,"C"],["Yaxel Lendeborg",1,"F"],["Lajae Jones",1,"G"]],
+"Houston Rockets": [["Kevin Durant",0,"F"],["Alperen Sengun",0,"C"],["Amen Thompson",0,"F"],["Fred VanVleet",0,"G"],["Jabari Smith Jr.",0,"F"],["Reed Sheppard",0,"G"],["Tari Eason",0,"F"],["Marcus Smart",0,"G"],["Steven Adams",0,"C"],["Bogdan Bogdanovic",0,"G"],["Oscar Tshiebwe",0,"C"],["Clint Capela",0,"C"],["Bruce Thornton",1,"G"],["Jack Kayil",1,"G"]],
+"Indiana Pacers": [["Pascal Siakam",0,"F"],["Ivica Zubac",0,"C"],["Andrew Nembhard",0,"G"],["Aaron Nesmith",0,"F"],["Kelly Oubre Jr.",0,"F"],["Jarace Walker",0,"F"],["Obi Toppin",0,"F"],["Quenton Jackson",0,"G"],["Ben Sheppard",0,"G"],["T.J. McConnell",0,"G"],["James Huff",0,"F"],["Johnny Furphy",0,"F"],["Braden Smith",1,"G"]],
+"LA Clippers": [["Darius Garland",0,"G"],["Rui Hachimura",0,"F"],["Brook Lopez",0,"C"],["Bradley Beal",0,"G"],["Kris Dunn",0,"G"],["Max Strus",0,"G"],["Jordan Miller",0,"F"],["Derrick Jones Jr.",0,"F"],["Kobe Sanders",0,"G"],["Isaiah Jackson",0,"F"],["Yuki Kawamura",0,"G"],["Keaton Wagner",1,"G"],["Baba Miller",1,"F"],["Nick Martinelli",1,"G"]],
+"Los Angeles Lakers": [["Luka Doncic",0,"G"],["Austin Reaves",0,"G"],["Walker Kessler",0,"C"],["Quentin Grimes",0,"G"],["Jarred Vanderbilt",0,"F"],["Ziaire Williams",0,"F"],["Collin Sexton",0,"G"],["Jake LaRavia",0,"F"],["Sandro Mamukelashvili",0,"F"],["Kevon Looney",0,"C"],["Matisse Thybulle",0,"G"],["Jaden Hardy",0,"G"],["Cameron Carr",1,"G"],["Vsevolod Ishchenko",1,"F"]],
+"Memphis Grizzlies": [["Ty Jerome",0,"G"],["Jerami Grant",0,"F"],["Zach Edey",0,"C"],["Cam Spencer",0,"G"],["Kris Murray",0,"F"],["Scotty Pippen Jr.",0,"G"],["Jaylen Wells",0,"G"],["GG Jackson",0,"F"],["Isaiah Stewart II",0,"C"],["Cedric Coward",0,"G"],["D'Angelo Russell",0,"G"],["Taylor Hendricks",0,"F"],["Cameron Boozer",1,"F"],["Karim Lopez",1,"F"],["Richie Saunders",1,"G"]],
+"Miami Heat": [["Giannis Antetokounmpo",0,"F"],["Bam Adebayo",0,"C"],["Andrew Wiggins",0,"F"],["Klay Thompson",0,"G"],["Tim Hardaway Jr.",0,"G"],["Davion Mitchell",0,"G"],["Bobby Portis",0,"F"],["Pelle Larsson",0,"G"],["Nikola Jovic",0,"F"],["Dru Smith",0,"G"],["Simone Fontecchio",0,"F"],["Ryan Conwell",1,"G"],["Tre Donaldson",0,"G"]],
+"Milwaukee Bucks": [["Tyler Herro",0,"G"],["Myles Turner",0,"C"],["Kyle Kuzma",0,"F"],["Kevin Porter Jr.",0,"G"],["Jaime Jaquez Jr.",0,"F"],["Ryan Rollins",0,"G"],["Kel'el Ware",0,"C"],["Gary Trent Jr.",0,"G"],["Ousmane Dieng",0,"F"],["AJ Green",0,"G"],["Pete Nance",0,"F"],["Caris LeVert",0,"G"],["Brayden Burries",1,"G"],["Nate Ament",1,"F"],["Malique Lewis",1,"F"]],
+"Minnesota Timberwolves": [["Anthony Edwards",0,"G"],["Rudy Gobert",0,"C"],["LaMelo Ball",0,"G"],["Jaden McDaniels",0,"F"],["Donte DiVincenzo",0,"G"],["Ayo Dosunmu",0,"G"],["Bones Hyland",0,"G"],["Josh Green",0,"G"],["Terrence Shannon Jr.",0,"G"],["Jaylen Clark",0,"G"],["Trey Lyles",0,"F"],["Enrique Freeman",0,"F"],["Isaiah Evans",1,"G"],["Trey Kaufman-Renn",1,"F"]],
+"New Orleans Pelicans": [["Zion Williamson",0,"F"],["Trey Murphy III",0,"F"],["Dejounte Murray",0,"G"],["Derik Queen",0,"C"],["Saddiq Bey",0,"F"],["Jeremiah Fears",0,"G"],["Herb Jones",0,"F"],["Karlo Matkovic",0,"F"],["Yves Missi",0,"C"],["Jordan Poole",0,"G"],["DeAndre Jordan",0,"C"],["Trendon Watford",0,"F"],["Jaron Pierre Jr.",1,"G"]],
+"New York Knicks": [["Jalen Brunson",0,"G"],["Karl-Anthony Towns",0,"F"],["Mikal Bridges",0,"F"],["OG Anunoby",0,"F"],["Josh Hart",0,"G"],["Miles McBride",0,"G"],["Jordan Clarkson",0,"G"],["Andre Drummond",0,"C"],["Jose Alvarado",0,"G"],["Landry Shamet",0,"G"],["Tyler Kolek",0,"G"],["Pacome Dadiet",0,"F"],["Tyler Nickel",1,"G"]],
+"Oklahoma City Thunder": [["Shai Gilgeous-Alexander",0,"G"],["Jalen Williams",0,"F"],["Chet Holmgren",0,"C"],["Isaiah Hartenstein",0,"C"],["Cason Wallace",0,"G"],["Ajay Mitchell",0,"G"],["Alex Caruso",0,"G"],["Jared McCain",0,"G"],["Nikola Topic",0,"G"],["Jaylin Williams",0,"F"],["Kenrich Williams",0,"F"],["Brooks Barnhizer",0,"F"],["Aday Mara",1,"C"],["Bennett Stirtz",1,"G"],["Otega Oweh",1,"G"]],
+"Orlando Magic": [["Paolo Banchero",0,"F"],["Franz Wagner",0,"F"],["Desmond Bane",0,"G"],["Jalen Suggs",0,"G"],["Wendell Carter Jr.",0,"C"],["Nikola Vucevic",0,"C"],["Anthony Black",0,"G"],["Tristan Da Silva",0,"F"],["Goga Bitadze",0,"C"],["Jevon Carter",0,"G"],["Jamal Cain",0,"F"],["Jonathan Isaac",0,"F"],["Izaiyah Nelson",1,"C"]],
+"Philadelphia 76ers": [["Joel Embiid",0,"C"],["LeBron James",0,"F"],["Tyrese Maxey",0,"G"],["Jaylen Brown",0,"F"],["VJ Edgecombe",0,"G"],["Anfernee Simons",0,"G"],["Kentavious Caldwell-Pope",0,"G"],["Adem Bona",0,"C"],["Justin Edwards",0,"F"],["Dean Wade",0,"F"],["Jabari Walker",0,"F"],["Caleb Love",0,"G"],["Labaron Philon Jr.",1,"G"]],
+"Phoenix Suns": [["Devin Booker",0,"G"],["Jalen Green",0,"G"],["Miles Bridges",0,"F"],["Mark Williams",0,"C"],["Dillon Brooks",0,"F"],["Collin Gillespie",0,"G"],["Jordan Goodwin",0,"G"],["Oso Ighodaro",0,"F"],["Ryan Dunn",0,"F"],["Khaman Maluach",0,"C"],["Haywood Highsmith",0,"F"],["Luke Kennard",0,"G"],["Koa Peat",1,"F"]],
+"Portland Trail Blazers": [["Deni Avdija",0,"F"],["Jrue Holiday",0,"G"],["Ja Morant",0,"G"],["Donovan Clingan",0,"C"],["Toumani Camara",0,"F"],["Shaedon Sharpe",0,"G"],["Scoot Henderson",0,"G"],["Jeremy Sochan",0,"F"],["Sidy Cissoko",0,"F"],["Micah Potter",0,"C"],["Vit Krejci",0,"F"],["Robert Williams",0,"C"]],
+"Sacramento Kings": [["Domantas Sabonis",0,"C"],["Zach LaVine",0,"G"],["Keegan Murray",0,"F"],["DeAndre Hunter",0,"F"],["Malik Monk",0,"G"],["Maxime Raynaud",0,"C"],["Nique Clifford",0,"G"],["Precious Achiuwa",0,"F"],["Emanuel Sharp",1,"G"],["Dylan Cardwell",0,"C"],["Alex Karaban",1,"F"],["Jonathan Mogbo",0,"F"],["Darius Acuff Jr.",1,"G"]],
+"San Antonio Spurs": [["Victor Wembanyama",0,"C"],["De'Aaron Fox",0,"G"],["Stephon Castle",0,"G"],["Devin Vassell",0,"G"],["Tobias Harris",0,"F"],["Dylan Harper",0,"G"],["Harrison Barnes",0,"F"],["Julian Champagnie",0,"F"],["Keldon Johnson",0,"F"],["Luke Kornet",0,"C"],["Carter Bryant",0,"F"],["Jordan McLaughlin",0,"G"],["Jayden Quaintance",1,"F"],["Tarris Reed Jr.",1,"C"],["Ja'Kobi Gillespie",1,"G"],["Maliq Brown",1,"F"]],
+"Toronto Raptors": [["Kawhi Leonard",0,"F"],["Scottie Barnes",0,"F"],["Brandon Ingram",0,"F"],["Immanuel Quickley",0,"G"],["RJ Barrett",0,"F"],["Jakob Poeltl",0,"C"],["Jamal Shead",0,"G"],["Ja'Kobe Walter",0,"G"],["Collin Murray-Boyles",0,"F"],["Gradey Dick",0,"G"],["Kyle Anderson",0,"F"],["Malachi Smith",0,"G"],["Trayce Jackson-Davis",0,"F"],["Allen Graves",1,"F"],["Jaden Bradley",1,"G"]],
+"Utah Jazz": [["Lauri Markkanen",0,"F"],["Jaren Jackson Jr.",0,"F"],["Keyonte George",0,"G"],["Ace Bailey",0,"F"],["Jusuf Nurkic",0,"C"],["Isaiah Collier",0,"G"],["Cody Williams",0,"F"],["Kyle Filipowski",0,"C"],["Brice Sensabaugh",0,"F"],["Jaxson Hayes",0,"C"],["Svi Mykhailiuk",0,"F"],["Mo Bamba",0,"C"],["Darryn Peterson",1,"G"]],
+"Washington Wizards": [["Anthony Davis",0,"F"],["Alex Sarr",0,"C"],["Trae Young",0,"G"],["Bilal Coulibaly",0,"F"],["Bub Carrington",0,"G"],["Khris Middleton",0,"F"],["Tre Johnson",0,"G"],["Deandre Ayton",0,"C"],["Kyshawn George",0,"F"],["Cam Whitmore",0,"F"],["Tristan Vukcevic",0,"F"],["Justin Champagnie",0,"F"],["AJ Dybantsa",1,"F"],["Felix Okpara",1,"C"]]
+  };
+
+  const players = [];
+  const byId = {};
+  Object.keys(TEAM_DATA).sort().forEach(team => {
+    const list = TEAM_DATA[team].slice().sort((a,b)=> a[0].localeCompare(b[0]));
+    list.forEach(([name, rookie, pos]) => {
+      const id = team.replace(/\s+/g,'_') + '::' + name.replace(/\s+/g,'_');
+      const p = { id, name, team, rookie: !!rookie, pos: pos||'', custom:false };
+      players.push(p); byId[id] = p;
+    });
+  });
+
+  // ---------- State ----------
+  let order = [];        // ranked ids
+  let tiers = {};         // id -> 'S'|'A'|'B'|'C'|'D'
+  let notes = {};         // id -> text
+  let deleted = {};        // id -> true (core players removed by user)
+  let cmp = null;          // {queue:[ids], targetId, lo, hi}
+  let history = [];        // undo stack of state snapshots
+  const STORAGE_KEY = 'nba-tool-state-v2';
+  const TIERS = ['S','A','B','C','D'];
+  const TIER_COLOR = {S:'var(--tierS)',A:'var(--tierA)',B:'var(--tierB)',C:'var(--tierC)',D:'var(--tierD)'};
+
+  function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._h);
+    toast._h = setTimeout(()=> t.classList.remove('show'), 1500);
+  }
+
+  function snapshot(){
+    return JSON.stringify({order, tiers, notes, deleted, cmp});
+  }
+  function pushHistory(){
+    history.push(snapshot());
+    if(history.length > 25) history.shift();
+  }
+  function undo(){
+    if(history.length === 0){ toast('Nothing to undo'); return; }
+    const prev = JSON.parse(history.pop());
+    order = prev.order; tiers = prev.tiers; notes = prev.notes; deleted = prev.deleted; cmp = prev.cmp;
+    saveState(); render(); toast('Undone');
+  }
+
+  let saveTimer = null, storageOK = true;
+  async function saveStateImmediate(){
+    try{
+      if(!window.storage) throw new Error('no storage');
+      await window.storage.set(STORAGE_KEY, JSON.stringify({order, tiers, notes, deleted, cmp}), false);
+      storageOK = true;
+    }catch(e){
+      if(storageOK){ toast('Not saving yet — publish this artifact to enable persistence'); }
+      storageOK = false;
+    }
+  }
+  function saveState(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveStateImmediate, 250);
+  }
+  // Flush immediately whenever the tab is hidden/closed so an in-progress
+  // compare session (mid-question) is never lost to the debounce window.
+  document.addEventListener('visibilitychange', () => { if(document.hidden){ clearTimeout(saveTimer); saveStateImmediate(); } });
+  window.addEventListener('pagehide', () => { clearTimeout(saveTimer); saveStateImmediate(); });
+
+  async function loadState(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, false);
+      if(res && res.value){
+        const saved = JSON.parse(res.value);
+        if(Array.isArray(saved.order)) order = saved.order.filter(id => byId[id] && !(saved.deleted||{})[id]);
+        tiers = saved.tiers || {};
+        notes = saved.notes || {};
+        deleted = saved.deleted || {};
+        cmp = saved.cmp || null;
+        if(cmp){
+          cmp.hi = Math.min(cmp.hi, order.length);
+          cmp.lo = Math.min(cmp.lo, cmp.hi);
+          if(cmp.targetId && !byId[cmp.targetId]) cmp.targetId = null;
+          cmp.queue = (cmp.queue||[]).filter(id => byId[id] && !order.includes(id));
+        }
+      }
+    }catch(e){ /* nothing saved yet */ }
+    render();
+  }
+
+  function activePlayers(){ return players.filter(p => !deleted[p.id]); }
+
+  // ---------- Bank ----------
+  const teamGroupsEl = document.getElementById('teamGroups');
+  const openTeams = new Set();
+  let editMode = false;
+
+  function groupedByTeam(filterText){
+    const q = (filterText||'').trim().toLowerCase();
+    const teams = {};
+    Object.keys(TEAM_DATA).sort().forEach(team => { teams[team] = []; });
+    activePlayers().forEach(p => {
+      if(!teams[p.team]) teams[p.team] = [];
+      if(!q || p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q)) teams[p.team].push(p);
+    });
+    return teams;
+  }
+
+  function renderBank(){
+    const q = document.getElementById('search').value;
+    const teams = groupedByTeam(q);
+    teamGroupsEl.innerHTML = '';
+    teamGroupsEl.className = editMode ? 'editmode' : '';
+    let any = false;
+    Object.keys(teams).forEach(team => {
+      const list = teams[team];
+      if(list.length === 0) return;
+      any = true;
+      const isOpen = openTeams.has(team) || !!q;
+      const div = document.createElement('div');
+      div.className = 'team-group' + (isOpen ? ' open' : '');
+      const rankedCount = list.filter(p => order.includes(p.id)).length;
+      div.innerHTML = `<div class="team-head" data-team="${team}"><h3>${team}</h3><div class="meta"><span>${rankedCount}/${list.length}</span><span class="chev">▸</span></div></div><div class="team-body"></div>`;
+      const body = div.querySelector('.team-body');
+      list.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        const added = order.includes(p.id);
+        row.innerHTML = `
+          <span class="name">${p.pos ? '<span class="pos-tag">'+p.pos+'</span>':''}${p.name}${p.rookie ? '<span class="rookie-badge">R</span>' : ''}</span>
+          <span class="row-actions">
+            <button class="cmpbtn" data-id="${p.id}" title="Place via compare">⇄</button>
+            <button class="addbtn ${added ? 'added' : ''}" data-id="${p.id}">${added ? '✓' : '+'}</button>
+            <button class="delbtn" data-id="${p.id}" title="Remove from roster">🗑</button>
+          </span>`;
+        body.appendChild(row);
+      });
+      teamGroupsEl.appendChild(div);
+    });
+    if(!any) teamGroupsEl.innerHTML = '<div class="noresults">No players match your search.</div>';
+  }
+
+  teamGroupsEl.addEventListener('click', (e) => {
+    const head = e.target.closest('.team-head');
+    if(head){
+      const team = head.dataset.team; const group = head.parentElement;
+      if(openTeams.has(team)){ openTeams.delete(team); group.classList.remove('open'); }
+      else{ openTeams.add(team); group.classList.add('open'); }
+      return;
+    }
+    const del = e.target.closest('.delbtn');
+    if(del){
+      const id = del.dataset.id;
+      if(confirm('Remove ' + byId[id].name + ' from the roster entirely?')){
+        pushHistory();
+        deleted[id] = true;
+        const idx = order.indexOf(id); if(idx>-1) order.splice(idx,1);
+        saveState(); render(); toast('Removed');
+      }
+      return;
+    }
+    const cmpBtn = e.target.closest('.cmpbtn');
+    if(cmpBtn){
+      const id = cmpBtn.dataset.id;
+      if(order.includes(id)){ toast(byId[id].name + ' is already ranked'); return; }
+      pushHistory();
+      startCompare([id]);
+      switchTab('cmp');
+      return;
+    }
+    const btn = e.target.closest('.addbtn');
+    if(btn){
+      const id = btn.dataset.id;
+      pushHistory();
+      const idx = order.indexOf(id);
+      if(idx === -1){ order.push(id); toast(byId[id].name + ' added — #' + order.length); }
+      else { order.splice(idx,1); toast(byId[id].name + ' removed'); }
+      saveState(); render();
+    }
+  });
+
+  document.getElementById('search').addEventListener('input', renderBank);
+  document.getElementById('editModeBtn').addEventListener('click', (e) => {
+    editMode = !editMode;
+    e.target.classList.toggle('active', editMode);
+    e.target.textContent = editMode ? 'Done editing' : 'Edit roster';
+    renderBank();
+  });
+
+  document.getElementById('customAddBtn').addEventListener('click', () => {
+    const nameEl = document.getElementById('customName');
+    const teamEl = document.getElementById('customTeam');
+    const name = nameEl.value.trim();
+    const team = teamEl.value.trim() || 'Unassigned';
+    if(!name){ toast('Enter a player name'); return; }
+    pushHistory();
+    const id = 'custom::' + team.replace(/\s+/g,'_') + '::' + name.replace(/\s+/g,'_') + '::' + Date.now();
+    const p = { id, name, team, rookie:false, pos:'', custom:true };
+    players.push(p); byId[id] = p;
+    if(!TEAM_DATA[team]) TEAM_DATA[team] = [];
+    order.push(id);
+    nameEl.value=''; teamEl.value='';
+    saveState(); render(); toast(name + ' added to your ranking');
+  });
+
+  // ---------- Ranking ----------
+  const rankList = document.getElementById('rankList');
+  const rankEmpty = document.getElementById('rankEmpty');
+  const rankFlat = document.getElementById('rankFlat');
+  const rankTiered = document.getElementById('rankTiered');
+  let tierGrouped = false;
+
+  function tierBadgeHTML(id){
+    const t = tiers[id];
+    const label = t || '–';
+    const color = t ? TIER_COLOR[t] : 'var(--line)';
+    return `<button class="tierbtn" data-id="${id}" style="color:${t?'#fff':'var(--ink-soft)'};background:${t?color:'#fff'};border-color:${color}">${label}</button>`;
+  }
+
+  function rankItemHTML(id, i){
+    const p = byId[id]; if(!p) return '';
+    const hasNote = notes[id] && notes[id].trim().length > 0;
+    return `
+      <li class="rank-item" data-id="${id}">
+        <div class="rank-row-top">
+          <span class="rank-num">${i!=null ? (i+1) : ''}</span>
+          <span class="rank-info"><span class="name">${p.pos?'<span class="pos-tag">'+p.pos+'</span>':''}${p.name}${p.rookie?'<span class="rookie-badge">R</span>':''}</span><span class="team">${p.team}</span></span>
+          ${tierBadgeHTML(id)}
+          <button class="notebtn" data-id="${id}" title="Note">${hasNote?'📝':'🗒'}</button>
+          <button class="rm" data-id="${id}" aria-label="Remove">✕</button>
+          <span class="handle" data-id="${id}" aria-label="Drag to reorder">≡</span>
+        </div>
+      </li>`;
+  }
+
+  function renderRank(){
+    if(order.length === 0){
+      rankEmpty.style.display = 'block';
+      rankFlat.style.display = 'none';
+      rankTiered.style.display = 'none';
+      return;
+    }
+    rankEmpty.style.display = 'none';
+    if(tierGrouped){
+      rankFlat.style.display = 'none';
+      rankTiered.style.display = 'block';
+      let html = '';
+      const groups = {S:[],A:[],B:[],C:[],D:[],'–':[]};
+      order.forEach(id => { const t = tiers[id] || '–'; groups[t].push(id); });
+      ['S','A','B','C','D','–'].forEach(t => {
+        if(groups[t].length === 0) return;
+        html += `<div class="tier-group-header">Tier ${t} (${groups[t].length})</div><ul style="list-style:none;margin:0;padding:0;">`;
+        groups[t].forEach(id => { html += rankItemHTML(id, null); });
+        html += `</ul>`;
+      });
+      rankTiered.innerHTML = html;
+    } else {
+      rankFlat.style.display = 'block';
+      rankTiered.style.display = 'none';
+      rankList.innerHTML = order.map((id,i) => rankItemHTML(id,i)).join('');
+    }
+  }
+
+  function rankClickHandler(e){
+    const rm = e.target.closest('.rm');
+    if(rm){
+      const id = rm.dataset.id;
+      pushHistory();
+      const idx = order.indexOf(id);
+      if(idx > -1){ order.splice(idx,1); saveState(); render(); }
+      return;
+    }
+    const tb = e.target.closest('.tierbtn');
+    if(tb){
+      const id = tb.dataset.id;
+      const cur = tiers[id];
+      const curIdx = TIERS.indexOf(cur);
+      pushHistory();
+      if(!cur) tiers[id] = 'S';
+      else if(curIdx === TIERS.length-1) delete tiers[id];
+      else tiers[id] = TIERS[curIdx+1];
+      saveState(); render();
+      return;
+    }
+    const nb = e.target.closest('.notebtn');
+    if(nb){
+      openNoteEditor(nb.dataset.id);
+      return;
+    }
+  }
+  rankList.addEventListener('click', rankClickHandler);
+  rankTiered.addEventListener('click', rankClickHandler);
+
+  // Pointer-based drag reorder (flat view only)
+  let dragEl = null;
+  function onPointerDown(e){
+    const handle = e.target.closest('.handle'); if(!handle) return;
+    const item = handle.closest('.rank-item');
+    dragEl = item; item.classList.add('dragging');
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    e.preventDefault();
+  }
+  function onPointerMove(e){
+    if(!dragEl) return;
+    const y = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+    const items = Array.from(rankList.querySelectorAll('.rank-item'));
+    for(const it of items){
+      if(it === dragEl) continue;
+      const rect = it.getBoundingClientRect();
+      const mid = rect.top + rect.height/2;
+      if(y < mid){ rankList.insertBefore(dragEl, it); break; }
+      else if(it === items[items.length-1]){ rankList.appendChild(dragEl); }
+    }
+  }
+  function onPointerUp(){
+    if(!dragEl) return;
+    dragEl.classList.remove('dragging');
+    pushHistory();
+    order = Array.from(rankList.querySelectorAll('.rank-item')).map(el => el.dataset.id);
+    dragEl = null;
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    saveState(); render();
+  }
+  rankList.addEventListener('pointerdown', onPointerDown);
+
+  document.getElementById('groupTierBtn').addEventListener('click', (e) => {
+    tierGrouped = !tierGrouped;
+    e.target.classList.toggle('active', tierGrouped);
+    renderRank();
+  });
+
+  // Notes overlay
+  let noteTargetId = null;
+  const noteOverlay = document.getElementById('noteOverlay');
+  function openNoteEditor(id){
+    noteTargetId = id;
+    document.getElementById('noteTitle').textContent = 'Note — ' + byId[id].name;
+    document.getElementById('noteText').value = notes[id] || '';
+    noteOverlay.classList.add('open');
+  }
+  document.getElementById('noteCancel').addEventListener('click', () => noteOverlay.classList.remove('open'));
+  document.getElementById('noteSave').addEventListener('click', () => {
+    pushHistory();
+    const val = document.getElementById('noteText').value.trim();
+    if(val) notes[noteTargetId] = val; else delete notes[noteTargetId];
+    noteOverlay.classList.remove('open');
+    saveState(); render();
+  });
+
+  // ---------- Compare mode ----------
+  const cmpIdle = document.getElementById('cmpIdle');
+  const cmpActive = document.getElementById('cmpActive');
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  function startCompare(queue){
+    if(order.length === 0 && queue.length > 0){
+      const first = queue.shift();
+      order.push(first);
+      if(queue.length === 0){ cmp = null; saveState(); render(); toast(byId[first].name + ' is your #1'); return; }
+    }
+    cmp = { queue, targetId: null, lo:0, hi:order.length };
+    advanceCompare();
+  }
+
+  function advanceCompare(){
+    if(!cmp){ return; }
+    if(cmp.targetId === null){
+      if(cmp.queue.length === 0){ cmp = null; saveState(); render(); toast('Done comparing'); return; }
+      cmp.targetId = cmp.queue.shift();
+      cmp.lo = 0; cmp.hi = order.length;
+    }
+    if(cmp.lo >= cmp.hi){
+      // insert
+      order.splice(cmp.lo, 0, cmp.targetId);
+      const placedName = byId[cmp.targetId].name;
+      cmp.targetId = null;
+      saveState();
+      if(cmp.queue.length === 0){
+        cmp = null; render(); toast(placedName + ' placed — all done'); switchTab('rank');
+        return;
+      }
+      advanceCompare();
+      return;
+    }
+    saveState();
+    render();
+  }
+
+  function currentMid(){
+    return Math.floor((cmp.lo + cmp.hi) / 2);
+  }
+
+  function renderCompare(){
+    if(!cmp || cmp.targetId === null){
+      cmpIdle.style.display = 'block';
+      cmpActive.style.display = 'none';
+      return;
+    }
+    cmpIdle.style.display = 'none';
+    cmpActive.style.display = 'block';
+    const mid = currentMid();
+    const midId = order[mid];
+    const target = byId[cmp.targetId];
+    const opponent = byId[midId];
+    const remaining = Math.max(0, Math.ceil(Math.log2(Math.max(cmp.hi - cmp.lo,1))));
+    document.getElementById('cmpProgress').textContent =
+      `Placing: ${target.name}  ·  ~${remaining} question${remaining===1?'':'s'} left  ·  ${cmp.queue.length} more queued`;
+    document.getElementById('cardA').innerHTML = `<div class="cname">${opponent.name}</div><div class="cteam">${opponent.team}${opponent.pos?' · '+opponent.pos:''} · currently #${mid+1}</div>`;
+    document.getElementById('cardA').dataset.role = 'opponent';
+    document.getElementById('cardB').innerHTML = `<div class="cname">${target.name}</div><div class="cteam">${target.team}${target.pos?' · '+target.pos:''} · unranked</div>`;
+    document.getElementById('cardB').dataset.role = 'target';
+  }
+
+  document.getElementById('cardA').addEventListener('click', () => {
+    // opponent (currently ranked, at mid) is better -> target goes below mid
+    cmp.lo = currentMid() + 1;
+    advanceCompare();
+    saveStateImmediate();
+  });
+  document.getElementById('cardB').addEventListener('click', () => {
+    // target is better -> narrow upper bound
+    cmp.hi = currentMid();
+    advanceCompare();
+    saveStateImmediate();
+  });
+  document.getElementById('cmpTooClose').addEventListener('click', () => {
+    order.splice(currentMid(), 0, cmp.targetId);
+    const name = byId[cmp.targetId].name;
+    cmp.targetId = null;
+    saveStateImmediate();
+    if(cmp.queue.length === 0){ cmp = null; render(); toast(name+' placed'); switchTab('rank'); return; }
+    advanceCompare();
+    saveStateImmediate();
+    toast(name + ' inserted');
+  });
+  document.getElementById('cmpSkip').addEventListener('click', () => {
+    cmp.queue.push(cmp.targetId);
+    cmp.targetId = null;
+    advanceCompare();
+    saveStateImmediate();
+  });
+  document.getElementById('cmpStop').addEventListener('click', () => {
+    if(cmp && cmp.targetId !== null) cmp.queue.unshift(cmp.targetId);
+    if(cmp) cmp.targetId = null;
+    saveStateImmediate(); render();
+  });
+  document.getElementById('startSortBtn').addEventListener('click', () => {
+    const unranked = shuffle(activePlayers().filter(p => !order.includes(p.id)).map(p => p.id));
+    if(unranked.length === 0){ toast('Everyone is already ranked'); return; }
+    pushHistory();
+    startCompare(unranked);
+  });
+
+  // ---------- Tabs ----------
+  function switchTab(name){
+    document.getElementById('tabBankBtn').classList.toggle('active', name==='bank');
+    document.getElementById('tabCmpBtn').classList.toggle('active', name==='cmp');
+    document.getElementById('tabRankBtn').classList.toggle('active', name==='rank');
+    document.getElementById('panelBank').classList.toggle('active', name==='bank');
+    document.getElementById('panelCmp').classList.toggle('active', name==='cmp');
+    document.getElementById('panelRank').classList.toggle('active', name==='rank');
+    if(name==='cmp') renderCompare();
+  }
+  document.getElementById('tabBankBtn').addEventListener('click', () => switchTab('bank'));
+  document.getElementById('tabCmpBtn').addEventListener('click', () => switchTab('cmp'));
+  document.getElementById('tabRankBtn').addEventListener('click', () => switchTab('rank'));
+
+  // ---------- Footer actions ----------
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    if(order.length === 0){ toast('Nothing ranked yet'); return; }
+    const lines = order.map((id,i) => {
+      const p = byId[id]; const t = tiers[id] ? ` [Tier ${tiers[id]}]` : '';
+      const n = notes[id] ? `  — ${notes[id]}` : '';
+      return `${i+1}. ${p.name} (${p.team})${t}${n}`;
+    });
+    const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'nba-ranking.txt';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url); toast('Exported');
+  });
+
+  document.getElementById('undoBtn').addEventListener('click', undo);
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if(order.length === 0) return;
+    if(confirm('Clear your entire ranking? This cannot be undone.')){
+      pushHistory();
+      order = []; cmp = null;
+      saveState(); render(); toast('Ranking cleared');
+    }
+  });
+
+  // Import
+  const importOverlay = document.getElementById('importOverlay');
+  document.getElementById('importBtn').addEventListener('click', () => { importOverlay.classList.add('open'); });
+  document.getElementById('importCancel').addEventListener('click', () => importOverlay.classList.remove('open'));
+  document.getElementById('importConfirm').addEventListener('click', () => {
+    const text = document.getElementById('importText').value;
+    const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+    if(lines.length === 0){ toast('Nothing to import'); return; }
+    pushHistory();
+    const newOrder = [];
+    lines.forEach(line => {
+      const m = line.match(/^\d+\.\s*(.+?)\s*\(([^)]+)\)/);
+      let name, team;
+      if(m){ name = m[1].trim(); team = m[2].trim(); }
+      else { name = line.replace(/^\d+\.\s*/, '').trim(); team = 'Unassigned'; }
+      let found = activePlayers().find(p => p.name.toLowerCase() === name.toLowerCase() && p.team.toLowerCase() === team.toLowerCase());
+      if(!found) found = activePlayers().find(p => p.name.toLowerCase() === name.toLowerCase());
+      if(found){ newOrder.push(found.id); }
+      else{
+        const id = 'custom::' + team.replace(/\s+/g,'_') + '::' + name.replace(/\s+/g,'_') + '::' + Date.now() + Math.random();
+        const p = { id, name, team, rookie:false, pos:'', custom:true };
+        players.push(p); byId[id] = p;
+        newOrder.push(id);
+      }
+    });
+    order = newOrder;
+    importOverlay.classList.remove('open');
+    document.getElementById('importText').value = '';
+    saveState(); render();
+    toast('Imported ' + newOrder.length + ' players');
+  });
+
+  // ---------- Render orchestration ----------
+  function render(){
+    document.getElementById('countTotal').textContent = activePlayers().length;
+    document.getElementById('countRanked').textContent = order.length;
+    renderBank();
+    renderRank();
+    if(document.getElementById('panelCmp').classList.contains('active')) renderCompare();
+  }
+
+  loadState();
+})();
+</script>
+
+</body>
+</html>
