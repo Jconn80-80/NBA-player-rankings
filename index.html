@@ -305,13 +305,12 @@ footer.bar button.danger{color:var(–danger);}
   }
 
   let saveTimer = null, storageOK = true;
-  async function saveStateImmediate(){
+  function saveStateImmediate(){
     try{
-      if(!window.storage) throw new Error('no storage');
-      await window.storage.set(STORAGE_KEY, JSON.stringify({order, tiers, notes, deleted, cmp}), false);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({order, tiers, notes, deleted, cmp}));
       storageOK = true;
     }catch(e){
-      if(storageOK){ toast('Not saving yet — publish this artifact to enable persistence'); }
+      if(storageOK){ toast('Could not save — your browser may be blocking local storage'); }
       storageOK = false;
     }
   }
@@ -324,11 +323,11 @@ footer.bar button.danger{color:var(–danger);}
   document.addEventListener('visibilitychange', () => { if(document.hidden){ clearTimeout(saveTimer); saveStateImmediate(); } });
   window.addEventListener('pagehide', () => { clearTimeout(saveTimer); saveStateImmediate(); });
 
-  async function loadState(){
+  function loadState(){
     try{
-      const res = await window.storage.get(STORAGE_KEY, false);
-      if(res && res.value){
-        const saved = JSON.parse(res.value);
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        const saved = JSON.parse(raw);
         if(Array.isArray(saved.order)) order = saved.order.filter(id => byId[id] && !(saved.deleted||{})[id]);
         tiers = saved.tiers || {};
         notes = saved.notes || {};
